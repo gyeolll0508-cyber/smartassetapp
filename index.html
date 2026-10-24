@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트 개인 가계부</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts (Inter & Noto Sans KR) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Header / Navbar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-indigo-600 text-white rounded-xl shadow-md">
+                    <i data-lucide="wallet" class="w-6 h-6"></i>
+                </div>
+                <h1 class="text-xl font-bold text-slate-900 tracking-tight">Smart Asset</h1>
+            </div>
+            
+            <!-- Monthly Navigation -->
+            <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                <button id="prev-month-btn" class="p-1.5 hover:bg-white rounded-lg transition-all text-slate-600 hover:text-slate-900 shadow-xs" title="이전 달">
+                    <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                </button>
+                <div class="px-3 py-0.5 font-semibold text-slate-800 text-sm sm:text-base min-w-[100px] text-center" id="current-month-display">
+                    2026년 10월
+                </div>
+                <button id="next-month-btn" class="p-1.5 hover:bg-white rounded-lg transition-all text-slate-600 hover:text-slate-900 shadow-xs" title="다음 달">
+                    <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Custom Notification Alert Box -->
+        <div id="alert-box" class="hidden transition-all duration-300 rounded-xl p-4 mb-4 flex items-center justify-between border shadow-sm">
+            <div class="flex items-center gap-3">
+                <i id="alert-icon" data-lucide="info" class="w-5 h-5"></i>
+                <span id="alert-message" class="text-sm font-medium"></span>
+            </div>
+            <button onclick="closeAlert()" class="text-slate-400 hover:text-slate-600">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- KPI Summary Cards -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Balance Card -->
+            <div class="bg-gradient-to-br from-indigo-600 to-indigo-700 text-white rounded-2xl p-6 shadow-lg shadow-indigo-100 relative overflow-hidden">
+                <div class="absolute -right-4 -bottom-4 bg-white/10 rounded-full p-8 pointer-events-none">
+                    <i data-lucide="coins" class="w-20 h-20 text-white/20"></i>
+                </div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-indigo-200">현재 총 잔액</p>
+                <h2 class="text-3xl font-extrabold mt-2 tracking-tight" id="total-balance">0 원</h2>
+                <div class="mt-4 text-xs text-indigo-100 flex items-center gap-1">
+                    <i data-lucide="trending-up" class="w-4 h-4"></i>
+                    <span>이번 달 순수익: <strong id="net-income">0 원</strong></span>
+                </div>
+            </div>
+
+            <!-- Income Card -->
+            <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs hover:shadow-md transition-shadow">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">이번 달 총 수입</p>
+                        <h3 class="text-2xl font-bold text-emerald-600 mt-2" id="monthly-income">0 원</h3>
+                    </div>
+                    <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                        <i data-lucide="arrow-down-left" class="w-6 h-6"></i>
+                    </div>
+                </div>
+                <div class="mt-4 text-xs text-slate-400">
+                    건수: <span id="income-count" class="font-semibold text-slate-600">0</span>건
+                </div>
+            </div>
+
+            <!-- Expense Card -->
+            <div class="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs hover:shadow-md transition-shadow">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">이번 달 총 지출</p>
+                        <h3 class="text-2xl font-bold text-rose-600 mt-2" id="monthly-expense">0 원</h3>
+                    </div>
+                    <div class="p-3 bg-rose-50 text-rose-600 rounded-xl">
+                        <i data-lucide="arrow-up-right" class="w-6 h-6"></i>
+                    </div>
+                </div>
+                <div class="mt-4 text-xs text-slate-400">
+                    건수: <span id="expense-count" class="font-semibold text-slate-600">0</span>건
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Workspace (Chart & Form & List) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Left Column: Entry Form & Category Analytics (5 Cols) -->
+            <div class="lg:col-span-5 space-y-6">
+                
+                <!-- Entry Form Card -->
+                <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2" id="form-title">
+                            <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-600"></i>
+                            내역 추가
+                        </h2>
+                        <button id="cancel-edit-btn" onclick="resetForm()" class="hidden text-xs text-slate-500 hover:text-slate-800 underline">
+                            수정 취소
+                        </button>
+                    </div>
+
+                    <form id="transaction-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                        <input type="hidden" id="edit-id" value="">
+
+                        <!-- Type Selector (Income / Expense) -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">유형</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="flex items-center justify-center p-2.5 border border-slate-200 rounded-xl cursor-pointer transition-all peer-checked:bg-emerald-50 text-slate-600 hover:bg-slate-50 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700 has-[:checked]:font-bold">
+                                    <input type="radio" name="type" value="income" class="sr-only" onchange="updateCategoryOptions()" checked>
+                                    <i data-lucide="arrow-down-left" class="w-4 h-4 mr-1.5"></i> 수입
+                                </label>
+                                <label class="flex items-center justify-center p-2.5 border border-slate-200 rounded-xl cursor-pointer transition-all text-slate-600 hover:bg-slate-50 has-[:checked]:border-rose-500 has-[:checked]:bg-rose-50 has-[:checked]:text-rose-700 has-[:checked]:font-bold">
+                                    <input type="radio" name="type" value="expense" class="sr-only" onchange="updateCategoryOptions()">
+                                    <i data-lucide="arrow-up-right" class="w-4 h-4 mr-1.5"></i> 지출
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Date Input -->
+                        <div>
+                            <label for="date" class="block text-xs font-semibold text-slate-600 mb-1">날짜 *</label>
+                            <input type="date" id="date" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm">
+                        </div>
+
+                        <!-- Category Selector -->
+                        <div>
+                            <label for="category" class="block text-xs font-semibold text-slate-600 mb-1">카테고리 *</label>
+                            <select id="category" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm bg-white">
+                                <!-- Options will be dynamically populated -->
+                            </select>
+                        </div>
+
+                        <!-- Title Input -->
+                        <div>
+                            <label for="title" class="block text-xs font-semibold text-slate-600 mb-1">내역명 *</label>
+                            <input type="text" id="title" placeholder="예: 점심 식사, 월급" required maxlength="30" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm">
+                        </div>
+
+                        <!-- Amount Input -->
+                        <div>
+                            <label for="amount" class="block text-xs font-semibold text-slate-600 mb-1">금액 (원) *</label>
+                            <input type="number" id="amount" placeholder="0" min="1" max="1000000000" required class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm">
+                        </div>
+
+                        <!-- Memo Input -->
+                        <div>
+                            <label for="memo" class="block text-xs font-semibold text-slate-600 mb-1">메모 (선택)</label>
+                            <input type="text" id="memo" placeholder="추가 설명 입력" maxlength="50" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm">
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" id="submit-btn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold rounded-xl transition-colors shadow-md shadow-indigo-100 flex items-center justify-center gap-2 text-sm">
+                            <i data-lucide="check" class="w-4 h-4"></i>
+                            <span id="submit-btn-text">내역 추가하기</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Category Expense Analytics Card -->
+                <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
+                    <h3 class="text-md font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="w-5 h-5 text-indigo-600"></i>
+                        이번 달 지출 통계
+                    </h3>
+                    <div class="relative flex items-center justify-center min-h-[200px]">
+                        <canvas id="category-chart" class="max-h-[220px]"></canvas>
+                        <div id="no-chart-data" class="absolute inset-0 flex items-center justify-center text-slate-400 text-sm hidden">
+                            지출 내역이 없습니다.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Transactions Table & Filters (7 Cols) -->
+            <div class="lg:col-span-7 space-y-4">
+                
+                <!-- Controls & Filter Bar -->
+                <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
+                    <!-- Search Input -->
+                    <div class="relative w-full md:w-64">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="search-input" placeholder="내역명/메모 검색..." oninput="renderTransactions()" class="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm">
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                        <!-- Type Filter -->
+                        <select id="filter-type" onchange="renderTransactions()" class="px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm bg-white focus:outline-none">
+                            <option value="all">전체 유형</option>
+                            <option value="income">수입만</option>
+                            <option value="expense">지출만</option>
+                        </select>
+
+                        <!-- Category Filter -->
+                        <select id="filter-category" onchange="renderTransactions()" class="px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm bg-white focus:outline-none">
+                            <option value="all">전체 카테고리</option>
+                            <!-- Dynamically populated -->
+                        </select>
+
+                        <!-- Sort Order -->
+                        <select id="sort-order" onchange="renderTransactions()" class="px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm bg-white focus:outline-none">
+                            <option value="latest">최신순</option>
+                            <option value="oldest">오래된순</option>
+                            <option value="amount-high">금액 높은순</option>
+                            <option value="amount-low">금액 낮은순</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Transaction List Box -->
+                <div class="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+                    <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                            거래 내역 목록 (<span id="filtered-count">0</span>)
+                        </span>
+                        <button onclick="exportData()" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
+                            <i data-lucide="download" class="w-3.5 h-3.5"></i> 백업 다운로드
+                        </button>
+                    </div>
+
+                    <div class="divide-y divide-slate-100 max-h-[600px] overflow-y-auto" id="transaction-list">
+                        <!-- Items rendered via Javascript -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
+            &copy; 2026 Smart Asset Account Book. All rights reserved. 브라우저 localstorage 저장 방식.
+        </div>
+    </footer>
+
+    <!-- Main Logic Script -->
+    <script>
+        // Categories Definitions
+        const CATEGORIES = {
+            income: ['월급', '부수입', '용돈', '금융소득', '기타수입'],
+            expense: ['식비', '교통/차량', '주거/통신', '문화/여가', '쇼핑/패션', ' 의료/건강', '교육', '경조사/선물', '기타지출']
+        };
+
+        // App State
+        let transactions = [];
+        let currentDate = new Date(); // Current viewing month
+        let categoryChart = null;
+
+        // Initialize App on DOM Load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadTransactions();
+            setCurrentMonthDisplay();
+            updateCategoryOptions();
+            populateFilterCategories();
+            render();
+            lucide.createIcons();
+
+            // Event Listeners for Month Nav
+            document.getElementById('prev-month-btn').addEventListener('click', () => changeMonth(-1));
+            document.getElementById('next-month-btn').addEventListener('click', () => changeMonth(1));
+
+            // Set default date picker value to today
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+        });
+
+        // LocalStorage Logic
+        function loadTransactions() {
+            const stored = localStorage.getItem('smart_account_transactions');
+            if (stored) {
+                try {
+                    transactions = JSON.parse(stored);
+                } catch (e) {
+                    transactions = [];
+                }
+            } else {
+                // Initial Sample Data if empty
+                transactions = [
+                    { id: '1', date: new Date().toISOString().split('T')[0], type: 'income', category: '월급', title: '10월 정기 급여', amount: 3500000, memo: '세후 입금' },
+                    { id: '2', date: new Date().toISOString().split('T')[0], type: 'expense', category: '식비', title: '점심 식사', amount: 12000, memo: '김치찌개' },
+                    { id: '3', date: new Date().toISOString().split('T')[0], type: 'expense', category: '교통/차량', title: '지하철 충전', amount: 55000, memo: '교통카드' }
+                ];
+                saveTransactions();
+            }
+        }
+
+        function saveTransactions() {
+            localStorage.setItem('smart_account_transactions', JSON.stringify(transactions));
+        }
+
+        // Navigation Month Change
+        function changeMonth(delta) {
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            setCurrentMonthDisplay();
+            render();
+        }
+
+        function setCurrentMonthDisplay() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth() + 1;
+            document.getElementById('current-month-display').innerText = `${year}년 ${month}월`;
+        }
+
+        // Update Category Dropdown based on Selected Type
+        function updateCategoryOptions() {
+            const selectedType = document.querySelector('input[name="type"]:checked').value;
+            const categorySelect = document.getElementById('category');
+            categorySelect.innerHTML = '';
+
+            CATEGORIES[selectedType].forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                categorySelect.appendChild(opt);
+            });
+        }
+
+        // Populate Filter Category List
+        function populateFilterCategories() {
+            const filterCat = document.getElementById('filter-category');
+            filterCat.innerHTML = '<option value="all">전체 카테고리</option>';
+            
+            const allCats = [...CATEGORIES.income, ...CATEGORIES.expense];
+            allCats.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                filterCat.appendChild(opt);
+            });
+        }
+
+        // Handle Add/Edit Transaction Form Submission
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const editId = document.getElementById('edit-id').value;
+            const type = document.querySelector('input[name="type"]:checked').value;
+            const date = document.getElementById('date').value;
+            const category = document.getElementById('category').value;
+            const title = document.getElementById('title').value.trim();
+            const amount = parseInt(document.getElementById('amount').value, 10);
+            const memo = document.getElementById('memo').value.trim();
+
+            // Validation Checks
+            if (!date || !category || !title || isNaN(amount) || amount <= 0) {
+                showAlert('모든 필수 항목을 올바르게 입력해주세요.', 'error');
+                return;
+            }
+
+            // Duplicate Check Requirement: Prevent same date, title, amount, type
+            const isDuplicate = transactions.some(item => 
+                item.id !== editId &&
+                item.date === date && 
+                item.title === title && 
+                item.amount === amount && 
+                item.type === type
+            );
+
+            if (isDuplicate) {
+                showAlert('동일한 날짜, 내역명, 금액, 타입의 내역이 이미 존재합니다! (중복 방지)', 'warning');
+                return;
+            }
+
+            if (editId) {
+                // Update
+                const index = transactions.findIndex(t => t.id === editId);
+                if (index !== -1) {
+                    transactions[index] = { id: editId, type, date, category, title, amount, memo };
+                    showAlert('성공적으로 수정되었습니다.', 'success');
+                }
+            } else {
+                // Create
+                const newTransaction = {
+                    id: Date.now().toString(),
+                    type,
+                    date,
+                    category,
+                    title,
+                    amount,
+                    memo
+                };
+                transactions.unshift(newTransaction);
+                showAlert('새로운 내역이 등록되었습니다.', 'success');
+            }
+
+            saveTransactions();
+            resetForm();
+            render();
+        }
+
+        // Reset Form Controls
+        function resetForm() {
+            document.getElementById('transaction-form').reset();
+            document.getElementById('edit-id').value = '';
+            document.getElementById('form-title').innerHTML = '<i data-lucide="plus-circle" class="w-5 h-5 text-indigo-600"></i> 내역 추가';
+            document.getElementById('submit-btn-text').innerText = '내역 추가하기';
+            document.getElementById('cancel-edit-btn').classList.add('hidden');
+            document.querySelector('input[name="type"][value="income"]').checked = true;
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+            updateCategoryOptions();
+            lucide.createIcons();
+        }
+
+        // Fill Form for Editing
+        function editTransaction(id) {
+            const item = transactions.find(t => t.id === id);
+            if (!item) return;
+
+            document.getElementById('edit-id').value = item.id;
+            document.querySelector(`input[name="type"][value="${item.type}"]`).checked = true;
+            updateCategoryOptions();
+            document.getElementById('date').value = item.date;
+            document.getElementById('category').value = item.category;
+            document.getElementById('title').value = item.title;
+            document.getElementById('amount').value = item.amount;
+            document.getElementById('memo').value = item.memo || '';
+
+            document.getElementById('form-title').innerHTML = '<i data-lucide="edit-3" class="w-5 h-5 text-indigo-600"></i> 내역 수정';
+            document.getElementById('submit-btn-text').innerText = '내역 수정 완료';
+            document.getElementById('cancel-edit-btn').classList.remove('hidden');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            lucide.createIcons();
+        }
+
+        // Delete Transaction
+        function deleteTransaction(id) {
+            if (confirm('정말로 이 내역을 삭제하시겠습니까?')) {
+                transactions = transactions.filter(t => t.id !== id);
+                saveTransactions();
+                render();
+                showAlert('내역이 삭제되었습니다.', 'info');
+            }
+        }
+
+        // Render Dashboard UI Component State
+        function render() {
+            renderTotals();
+            renderTransactions();
+            renderChart();
+        }
+
+        // Calculate and Render KPI Summary Cards
+        function renderTotals() {
+            const currentYear = currentDate.getFullYear();
+            const currentMonth = currentDate.getMonth();
+
+            let totalBalance = 0;
+            let monthlyIncome = 0;
+            let monthlyExpense = 0;
+            let incomeCount = 0;
+            let expenseCount = 0;
+
+            transactions.forEach(t => {
+                const itemDate = new Date(t.date);
+                
+                // Lifetime balance calculation
+                if (t.type === 'income') {
+                    totalBalance += t.amount;
+                } else {
+                    totalBalance -= t.amount;
+                }
+
+                // Selected month stats
+                if (itemDate.getFullYear() === currentYear && itemDate.getMonth() === currentMonth) {
+                    if (t.type === 'income') {
+                        monthlyIncome += t.amount;
+                        incomeCount++;
+                    } else {
+                        monthlyExpense += t.amount;
+                        expenseCount++;
+                    }
+                }
+            });
+
+            const netIncome = monthlyIncome - monthlyExpense;
+
+            document.getElementById('total-balance').innerText = formatCurrency(totalBalance);
+            document.getElementById('monthly-income').innerText = '+' + formatCurrency(monthlyIncome);
+            document.getElementById('monthly-expense').innerText = '-' + formatCurrency(monthlyExpense);
+            document.getElementById('net-income').innerText = formatCurrency(netIncome);
+            document.getElementById('income-count').innerText = incomeCount;
+            document.getElementById('expense-count').innerText = expenseCount;
+        }
+
+        // Filter, Sort and Render Transaction Items
+        function renderTransactions() {
+            const listContainer = document.getElementById('transaction-list');
+            const searchKeyword = document.getElementById('search-input').value.toLowerCase();
+            const typeFilter = document.getElementById('filter-type').value;
+            const categoryFilter = document.getElementById('filter-category').value;
+            const sortOrder = document.getElementById('sort-order').value;
+
+            const currentYear = currentDate.getFullYear();
+            const currentMonth = currentDate.getMonth();
+
+            // Month Filtering
+            let filtered = transactions.filter(t => {
+                const itemDate = new Date(t.date);
+                return itemDate.getFullYear() === currentYear && itemDate.getMonth() === currentMonth;
+            });
+
+            // Type Filter
+            if (typeFilter !== 'all') {
+                filtered = filtered.filter(t => t.type === typeFilter);
+            }
+
+            // Category Filter
+            if (categoryFilter !== 'all') {
+                filtered = filtered.filter(t => t.category === categoryFilter);
+            }
+
+            // Search Keyword Filter
+            if (searchKeyword) {
+                filtered = filtered.filter(t => 
+                    t.title.toLowerCase().includes(searchKeyword) || 
+                    (t.memo && t.memo.toLowerCase().includes(searchKeyword))
+                );
+            }
+
+            // Sorting
+            filtered.sort((a, b) => {
+                if (sortOrder === 'latest') return new Date(b.date) - new Date(a.date);
+                if (sortOrder === 'oldest') return new Date(a.date) - new Date(b.date);
+                if (sortOrder === 'amount-high') return b.amount - a.amount;
+                if (sortOrder === 'amount-low') return a.amount - b.amount;
+                return 0;
+            });
+
+            document.getElementById('filtered-count').innerText = filtered.length;
+
+            if (filtered.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="p-8 text-center text-slate-400 text-sm">
+                        <i data-lucide="receipt" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
+                        표시할 내역이 없습니다.
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            listContainer.innerHTML = filtered.map(t => {
+                const isIncome = t.type === 'income';
+                return `
+                    <div class="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between group">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2.5 rounded-xl ${isIncome ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}">
+                                <i data-lucide="${isIncome ? 'arrow-down-left' : 'arrow-up-right'}" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-semibold text-slate-800 text-sm">${escapeHtml(t.title)}</span>
+                                    <span class="px-2 py-0.5 text-[10px] rounded-full font-medium ${isIncome ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+                                        ${escapeHtml(t.category)}
+                                    </span>
+                                </div>
+                                <div class="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
+                                    <span>${t.date}</span>
+                                    ${t.memo ? `<span>•</span> <span>${escapeHtml(t.memo)}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-4">
+                            <span class="font-bold text-sm ${isIncome ? 'text-emerald-600' : 'text-slate-800'}">
+                                ${isIncome ? '+' : '-'}${formatCurrency(t.amount)}
+                            </span>
+                            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                <button onclick="editTransaction('${t.id}')" class="p-1 hover:bg-slate-200 text-slate-500 rounded-lg transition-colors" title="수정">
+                                    <i data-lucide="edit-2" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="deleteTransaction('${t.id}')" class="p-1 hover:bg-rose-100 text-rose-500 rounded-lg transition-colors" title="삭제">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        // Render Doughnut Chart for Monthly Category Expenses
+        function renderChart() {
+            const ctx = document.getElementById('category-chart').getContext('2d');
+            const noDataEl = document.getElementById('no-chart-data');
+
+            const currentYear = currentDate.getFullYear();
+            const currentMonth = currentDate.getMonth();
+
+            // Calculate Expenses per category
+            const categorySums = {};
+            transactions.forEach(t => {
+                const itemDate = new Date(t.date);
+                if (t.type === 'expense' && itemDate.getFullYear() === currentYear && itemDate.getMonth() === currentMonth) {
+                    categorySums[t.category] = (categorySums[t.category] || 0) + t.amount;
+                }
+            });
+
+            const labels = Object.keys(categorySums);
+            const data = Object.values(categorySums);
+
+            if (data.length === 0) {
+                if (categoryChart) categoryChart.destroy();
+                noDataEl.classList.remove('hidden');
+                return;
+            } else {
+                noDataEl.classList.add('hidden');
+            }
+
+            const bgColors = [
+                '#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', 
+                '#8b5cf6', '#14b8a6', '#f97316', '#64748b'
+            ];
+
+            if (categoryChart) {
+                categoryChart.destroy();
+            }
+
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: bgColors.slice(0, labels.length),
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: { family: "'Noto Sans KR', sans-serif", size: 11 },
+                                boxWidth: 12,
+                                padding: 12
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw || 0;
+                                    return ` ${context.label}: ${formatCurrency(value)}`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
+
+        // Show Temporary Alert Banner
+        function showAlert(msg, type = 'info') {
+            const alertBox = document.getElementById('alert-box');
+            const alertMsg = document.getElementById('alert-message');
+            const alertIcon = document.getElementById('alert-icon');
+
+            const styles = {
+                error: 'bg-rose-50 text-rose-800 border-rose-200',
+                warning: 'bg-amber-50 text-amber-800 border-amber-200',
+                success: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+                info: 'bg-indigo-50 text-indigo-800 border-indigo-200'
+            };
+
+            alertBox.className = `transition-all duration-300 rounded-xl p-4 mb-4 flex items-center justify-between border shadow-sm ${styles[type]}`;
+            alertMsg.innerText = msg;
+            alertBox.classList.remove('hidden');
+
+            setTimeout(() => {
+                closeAlert();
+            }, 4000);
+        }
+
+        function closeAlert() {
+            document.getElementById('alert-box').classList.add('hidden');
+        }
+
+        // Format Numbers as Korean Won Currency
+        function formatCurrency(num) {
+            return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(num).replace('₩', '') + ' 원';
+        }
+
+        // Utility: Escape HTML to avoid XSS
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        // Export Data as JSON Backup
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(transactions, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `smart_asset_backup_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+    </script>
+</body>
+</html>
